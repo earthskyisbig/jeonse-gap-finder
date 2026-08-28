@@ -232,6 +232,14 @@ white-space:nowrap}
 .badge.bad{background:var(--bad-soft);color:var(--bad)}
 .badge.mid{background:var(--mid-soft);color:var(--mid)}
 .rat.hi{color:var(--bad);font-weight:700} .rat.ok{color:var(--ok);font-weight:700}
+tr.cand{cursor:pointer} tr.cand:hover td{background:var(--accent-soft)}
+tr.linkrow td{background:var(--accent-soft);padding:8px 10px}
+.maplinks{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.maplinks a{display:inline-block;border:1px solid var(--accent);
+color:var(--accent);border-radius:8px;padding:4px 12px;font-size:12px;
+font-weight:700;text-decoration:none}
+.maplinks a:hover{background:var(--accent);color:#fff}
+.maplinks .mut2{font-size:11px}
 .note{border-radius:10px;padding:10px 14px;font-size:12.5px;margin:10px 0 0;
 background:var(--mid-soft);color:var(--mid)}
 .scroller{overflow-x:auto}
@@ -417,14 +425,14 @@ function render(){
 
   const kf=KEYF[st.sort]||KEYF.ratio;
   rows.sort((a,b)=>st.desc?(kf(b)>kf(a)?1:-1):(kf(a)>kf(b)?1:-1));
-  const top=rows.slice(0,100);
-  $('tblCap').textContent=`전체 ${rows.length.toLocaleString()}개 중 상위 100 · 열 제목 클릭으로 정렬`;
-  $('tbody').innerHTML=top.map(x=>{const r=x.r;
+  const top=rows.slice(0,100);window._top=top;
+  $('tblCap').textContent=`전체 ${rows.length.toLocaleString()}개 중 상위 100 · 열 제목 정렬 · 행 클릭 = 지도 열기`;
+  $('tbody').innerHTML=top.map((x,i)=>{const r=x.r;
     const flags=[r[12]?'<span class="badge bad">규제</span>':'',
       r[3]<40?'<span class="badge mid">소형</span>':'',
       x.ratio>=.9?'<span class="badge bad">역전세위험</span>':''].join(' ');
     const rc=x.ratio>=.9?'hi':(x.ratio>=.8?'ok':'');
-    return `<tr><td><b>${r[0]}</b> ${r[1]}<br><span class="mut2">${r[2]}</span></td>`+
+    return `<tr class="cand" data-i="${i}"><td><b>${r[0]}</b> ${r[1]}<br><span class="mut2">${r[2]}</span></td>`+
       `<td class="n">${r[3]}㎡</td><td class="n">${r[4]||'—'}</td>`+
       `<td class="n">${eok(r[5])}</td><td class="n">${eok(r[6])}</td>`+
       `<td class="n rat ${rc}">${(x.ratio*100).toFixed(1)}%</td>`+
@@ -432,6 +440,27 @@ function render(){
       `<td class="n mut">${r[9]}/${r[10]}</td><td>${flags}</td></tr>`;
   }).join('');
 }
+// 행 클릭 → 지도 링크 행 토글. 실증한 URL 만 쓴다:
+// 카카오맵 link/search(주소 전체) · 호갱노노 search?q=단지명 ·
+// 네이버는 new.land 검색이 공백쿼리 404 + 단지명 단독 오지역 매칭이라
+// 통합검색(부동산 카드) 경유. 아실·직방은 쿼리 딥링크가 없어 제외.
+$('tbody').addEventListener('click',e=>{
+  const tr=e.target.closest('tr');if(!tr)return;
+  if(tr.classList.contains('linkrow'))return;
+  const old=document.querySelector('tr.linkrow');
+  const was=old&&old.previousElementSibling===tr;
+  if(old)old.remove();
+  if(was||!tr.dataset.i)return;
+  const x=window._top[+tr.dataset.i];if(!x)return;
+  const r=x.r,full=`${r[14]} ${r[0]} ${r[1]} ${r[2]}`,apt=r[2];
+  const row=document.createElement('tr');row.className='linkrow';
+  row.innerHTML=`<td colspan="10"><div class="maplinks">`+
+    `<a target="_blank" rel="noopener" href="https://map.kakao.com/link/search/${encodeURIComponent(full)}">카카오맵</a>`+
+    `<a target="_blank" rel="noopener" href="https://search.naver.com/search.naver?query=${encodeURIComponent(full)}">네이버 검색</a>`+
+    `<a target="_blank" rel="noopener" href="https://hogangnono.com/search?q=${encodeURIComponent(apt)}">호갱노노</a>`+
+    `<span class="mut2">${full} · 새 탭으로 열림 · 아실·직방은 검색 딥링크 미지원</span></div></td>`;
+  tr.after(row);
+});
 document.querySelectorAll('#segSido button').forEach(b=>{
   b.onclick=()=>{document.querySelectorAll('#segSido button')
     .forEach(x=>x.classList.remove('on'));b.classList.add('on');

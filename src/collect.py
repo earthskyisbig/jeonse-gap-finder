@@ -40,6 +40,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB = os.path.join(ROOT, 'data.duckdb')
 SIDOS = ['서울특별시', '경기도']
 EXTRA = {'경기도': ['41591', '41593', '41595', '41597']}   # 화성시 분리 구
+# 위 코드는 코드표에 없어 이름이 빈다 — 실측 권역명
+EXTRA_NAMES = {'41591': '화성시 남양·송산', '41593': '화성시 봉담·기안',
+               '41595': '화성시 반월·기산', '41597': '화성시 동탄'}
 
 
 def month_list(n):
@@ -139,7 +142,7 @@ def main():
                 n = 0
             if n > 0:
                 live.append((code, sido))
-                names[code] = nm
+                names[code] = nm or EXTRA_NAMES.get(code, code)
         print(f'{sido}: 살아있는 코드 {sum(1 for _, s in live if s == sido)}개',
               flush=True)
 
