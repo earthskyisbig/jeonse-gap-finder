@@ -1,0 +1,47 @@
+# 매월 1일 07:10 KST(전월 22:10 UTC)에 실거래를 새로 수집해 Pages 재배포.
+# 러너에 영속 DB 가 없으므로 매번 최근 13개월만 받는다 — 계산 창이 12개월이라 충분.
+# 수동 실행: Actions 탭 → Run workflow.
+name: update-and-deploy
+
+on:
+  schedule:
+    - cron: '10 22 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: 수집 (최근 13개월, 서울+경기)
+        env:
+          PUBLIC_DATA_SERVICE_KEY: ${{ secrets.PUBLIC_DATA_SERVICE_KEY }}
+        run: python src/collect.py --months 13
+      - name: 계산 + 페이지 생성
+        run: python src/build.py
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

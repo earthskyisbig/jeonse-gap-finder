@@ -1,0 +1,4 @@
+PublicDataReader>=1.1
+duckdb>=1.0
+pandas>=2.0
+python-dotenv
