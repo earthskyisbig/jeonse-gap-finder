@@ -153,31 +153,44 @@ def main():
     con.executemany('insert into sgg values (?,?,?)',
                     [(c, names[c], s) for c, s in live])
 
+    from concurrent.futures import ThreadPoolExecutor
+
+    def fetch_code(args):
+        code, sido, ttype, kind = args
+        out, got = [], 0
+        for ym in yms:
+            try:
+                d = api.get_data(property_type='아파트', trade_type=ttype,
+                                 sigungu_code=code, year_month=ym,
+                                 verbose=False)
+            except Exception as e:
+                print(f'  ! {code} {ym} 실패: {str(e)[:40]}', flush=True)
+                continue
+            if d is None or not len(d):
+                continue
+            d = d.copy()
+            d['sigungu_code'] = code
+            out.append(normalize(d, kind, sido))
+            got += len(d)
+        if got == 0:
+            print(f'  ! {code} {names.get(code)} {ttype} 0건 — 확인 필요',
+                  flush=True)
+        return out
+
     for kind, ttype in (('sale', '매매'), ('rent', '전월세')):
         frames = []
         t0 = time.time()
-        for i, (code, sido) in enumerate(live, 1):
-            got = 0
-            for ym in yms:
-                try:
-                    d = api.get_data(property_type='아파트', trade_type=ttype,
-                                     sigungu_code=code, year_month=ym,
-                                     verbose=False)
-                except Exception as e:
-                    print(f'  ! {code} {ym} 실패: {str(e)[:40]}', flush=True)
-                    continue
-                if d is None or not len(d):
-                    continue
-                d = d.copy()
-                d['sigungu_code'] = code
-                frames.append(normalize(d, kind, sido))
-                got += len(d)
-            if got == 0:
-                print(f'  ! {code} {names.get(code)} {ttype} 0건 — 확인 필요',
-                      flush=True)
-            if i % 10 == 0:
-                print(f'  [{i}/{len(live)}] {ttype} {int(time.time()-t0)}s',
-                      flush=True)
+        # GitHub 러너에서 한국 API 왕복이 느려 직렬로는 2시간을 넘긴다(실측
+        # 타임아웃 취소) — 시군구 4개 병렬. 일 트래픽 한도에는 여유가 크다.
+        with ThreadPoolExecutor(max_workers=4) as ex:
+            done = 0
+            for out in ex.map(fetch_code,
+                              [(c, s, ttype, kind) for c, s in live]):
+                frames.extend(out)
+                done += 1
+                if done % 10 == 0:
+                    print(f'  [{done}/{len(live)}] {ttype} '
+                          f'{int(time.time()-t0)}s', flush=True)
         allf = pd.concat(frames, ignore_index=True).drop_duplicates('nkey')
         tbl = 'apt_trade' if kind == 'sale' else 'apt_rent'
         con.register('_t', allf)
