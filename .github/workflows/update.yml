@@ -1,11 +1,16 @@
-# 매월 1일 07:10 KST(전월 22:10 UTC)에 실거래를 새로 수집해 Pages 재배포.
-# 러너에 영속 DB 가 없으므로 매번 최근 13개월만 받는다 — 계산 창이 12개월이라 충분.
-# 수동 실행: Actions 탭 → Run workflow.
-name: update-and-deploy
+# docs/ 가 push 되면 GitHub Pages 로 배포한다 — 배포 전용.
+#
+# ⚠️ 수집을 Actions 에서 돌리지 않는 이유(2026-08-28 실측):
+#   공공데이터포털 API 가 GitHub 러너(해외 IP)에서 사실상 차단된다.
+#   프로브 115개 전부 0건, 호출당 ~2분 지연으로 4시간 만에 실패했다.
+#   수집·계산은 로컬 스케줄러(매월 1일)가 하고, 여기는 docs 만 배포한다.
+#   덕분에 API 키가 GitHub 에 있을 필요도 없다.
+name: deploy-pages
 
 on:
-  schedule:
-    - cron: '10 22 1 * *'
+  push:
+    branches: [main]
+    paths: ['docs/**']
   workflow_dispatch:
 
 permissions:
@@ -18,30 +23,16 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 300
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: pip install -r requirements.txt
-      - name: 수집 (최근 13개월, 서울+경기)
-        env:
-          PUBLIC_DATA_SERVICE_KEY: ${{ secrets.PUBLIC_DATA_SERVICE_KEY }}
-        run: python src/collect.py --months 13
-      - name: 계산 + 페이지 생성
-        run: python src/build.py
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs
   deploy:
-    needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
       - id: deployment
         uses: actions/deploy-pages@v4
