@@ -6,7 +6,9 @@
 - **수집** `src/collect.py` — 매매+전월세 최근 13개월, 시군구 코드는 프로브로 확정
 - **계산·생성** `src/build.py` — 법정동+지번+면적밴드 매칭, 12개월 중위값,
   해제·직거래 제외, 1주택 약식 취득세 → `docs/index.html` (데이터 내장, 서버 불요)
-- **자동 갱신** `.github/workflows/update.yml` — 매월 1일 수집→생성→GitHub Pages 배포
+- **자동 갱신** — 수집·계산은 로컬 스케줄러가 매월 1일 실행 후 `docs/` 를 push,
+  `.github/workflows/update.yml` 은 push 에 반응해 Pages 배포만 한다
+  (⚠️ 공공데이터 API 는 GitHub 러너(해외 IP)에서 차단돼 CI 수집이 불가 — 실측)
 
 ## 로컬 실행
 
@@ -19,9 +21,9 @@ python src/build.py                          # → docs/index.html
 
 ## 배포 설정 (1회)
 
-1. 저장소 Settings → Secrets → Actions 에 `PUBLIC_DATA_SERVICE_KEY` 등록
-2. Settings → Pages → Source 를 **GitHub Actions** 로
-3. Actions 탭에서 `update-and-deploy` 수동 실행 1회
+1. Settings → Pages → Source 를 **GitHub Actions** 로
+2. 로컬(또는 국내 서버)에서 수집→생성 후 `docs/` 를 push 하면 자동 배포된다.
+   API 키는 로컬에만 둔다 — CI 에는 필요 없다
 
 ## 읽는 법 · 한계
 
